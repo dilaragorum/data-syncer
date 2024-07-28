@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	syncer := datasyncer.New(
+	syncer := datasyncer.NewWithTransformFunc(
 		datasyncer.NewSourceFile(&datasyncer.SourceFileConfig{
 			Path: "examples/file_to_kafka_with_transform/example.txt",
 		}),

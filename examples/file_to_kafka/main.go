@@ -16,7 +16,6 @@ func main() {
 				Topic:   "file-to-kafka-test-topic",
 			},
 		}),
-		nil,
 	)
 
 	if err := syncer.Sync(); err != nil {

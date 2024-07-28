@@ -18,7 +18,14 @@ type DataSyncer struct {
 	transform func([]byte) ([]byte, error)
 }
 
-func New(source DataSource, target DataTarget, transform TransformFunc) *DataSyncer {
+func New(source DataSource, target DataTarget) *DataSyncer {
+	return &DataSyncer{
+		source: source,
+		target: target,
+	}
+}
+
+func NewWithTransformFunc(source DataSource, target DataTarget, transform TransformFunc) *DataSyncer {
 	return &DataSyncer{
 		source:    source,
 		target:    target,
