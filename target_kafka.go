@@ -2,65 +2,72 @@ package datasyncer
 
 import (
 	"context"
-	"fmt"
-	"github.com/Trendyol/kafka-konsumer/v2"
+	"github.com/segmentio/kafka-go"
+	"time"
 )
-
-const MAX_BATCH_SIZE int = 100
 
 type KafkaProducerConfig struct {
-	Writer                    WriterConfig
-	DistributedTracingConfig  DistributedTracingConfig
-	Transport                 TransportConfig
-	SASL                      SASLConfig
-	TLS                       TLSConfig
-	ClientID                  string
-	DistributedTracingEnabled bool
+	Brokers      []string
+	Topic        string
+	BatchSize    int
+	BatchTimeout time.Duration
 }
 
-type (
-	DistributedTracingConfig kafka.DistributedTracingConfiguration
-	WriterConfig             kafka.WriterConfig
-	TransportConfig          kafka.TransportConfig
-	SASLConfig               kafka.SASLConfig
-	TLSConfig                kafka.TLSConfig
-)
-
 type targetKafka struct {
-	producer kafka.Producer
+	producer     *kafka.Writer
+	batchTimeout time.Duration
 }
 
 func NewTargetKafka(producerConfig *KafkaProducerConfig) DataTarget {
-	producer, _ := kafka.NewProducer(&kafka.ProducerConfig{
-		Writer: kafka.WriterConfig(producerConfig.Writer),
-	})
-	return &targetKafka{producer: producer}
+	if producerConfig.BatchSize <= 0 {
+		producerConfig.BatchSize = 100
+	}
+
+	producer := &kafka.Writer{
+		Topic:        producerConfig.Topic,
+		Addr:         kafka.TCP(producerConfig.Brokers...),
+		BatchSize:    producerConfig.BatchSize,
+		BatchTimeout: time.Nanosecond,
+	}
+
+	target := &targetKafka{producer: producer}
+
+	if producerConfig.BatchTimeout <= 0 {
+		target.batchTimeout = time.Second
+	} else {
+		target.batchTimeout = producerConfig.BatchTimeout
+	}
+
+	return target
 }
 
-// TODO: bu error client callback vs. verilip devam edilebilir, return ile tamamen kesiyoruz.
 func (t *targetKafka) Send(input <-chan []byte) error {
-	messages := make([]kafka.Message, 0, MAX_BATCH_SIZE)
+	ticker := time.Tick(t.batchTimeout)
 
-	for data := range input {
-		message := kafka.Message{
-			Value: data,
-		}
-
-		messages = append(messages, message)
-
-		if len(messages) > MAX_BATCH_SIZE {
-			err := t.producer.ProduceBatch(context.Background(), messages)
-			if err != nil {
-				return err
+	var toBeProduced []kafka.Message
+	for {
+		select {
+		case data, isOpened := <-input:
+			if !isOpened {
+				if len(toBeProduced) != 0 {
+					t.producer.WriteMessages(context.Background(), toBeProduced...)
+				}
+				return nil
 			}
-			messages = make([]kafka.Message, 0, 100)
+
+			toBeProduced = append(toBeProduced, kafka.Message{Value: data})
+
+			if len(toBeProduced) == t.producer.BatchSize {
+				t.producer.WriteMessages(context.Background(), toBeProduced...)
+				toBeProduced = []kafka.Message{}
+			}
+		case <-ticker:
+			if len(toBeProduced) == 0 {
+				continue
+			}
+
+			t.producer.WriteMessages(context.Background(), toBeProduced...)
+			toBeProduced = []kafka.Message{}
 		}
 	}
-
-	err := t.producer.ProduceBatch(context.Background(), messages)
-	if err != nil {
-		return fmt.Errorf("cannot produce batch messages: %w", err)
-	}
-
-	return nil
 }

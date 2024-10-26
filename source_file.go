@@ -18,7 +18,6 @@ func NewSourceFile(config *SourceFileConfig) DataSource {
 	return &sourceFile{sourceFileConfig: config}
 }
 
-// TODO: SourceFileConfig struct'ı oluşturmalıyız, path' ver.
 func (s *sourceFile) Fetch(c chan<- []byte) error {
 	file, err := os.Open(s.sourceFileConfig.Path)
 	if err != nil {

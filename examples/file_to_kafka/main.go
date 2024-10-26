@@ -2,7 +2,6 @@ package main
 
 import (
 	"datasyncer"
-	"github.com/Trendyol/kafka-konsumer/v2"
 	"log"
 )
 
@@ -12,10 +11,8 @@ func main() {
 			Path: "examples/file_to_kafka/example.txt",
 		}),
 		datasyncer.NewTargetKafka(&datasyncer.KafkaProducerConfig{
-			Writer: kafka.WriterConfig{
-				Brokers: []string{"localhost:29092"},
-				Topic:   "file-to-kafka-test-topic",
-			},
+			Brokers: []string{"localhost:29092"},
+			Topic:   "file-to-kafka-test-topic",
 		}),
 	)
 
