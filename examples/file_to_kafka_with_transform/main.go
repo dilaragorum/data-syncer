@@ -9,15 +9,13 @@ import (
 
 func main() {
 	syncer := datasyncer.NewWithTransformFunc(
-		datasyncer.NewSourceFile(&datasyncer.SourceFileConfig{
-			Path: "examples/file_to_kafka_with_transform/example.txt",
-		}),
-		datasyncer.NewTargetKafka(&datasyncer.KafkaProducerConfig{
-			Writer: datasyncer.WriterConfig{
-				Brokers: []string{"localhost:29092"},
-				Topic:   "file-to-kafka-test-topic",
-			},
-		}),
+		datasyncer.NewSourceFile(
+			datasyncer.WithPath("examples/file_to_kafka_with_transform/example.txt"),
+		),
+		datasyncer.NewTargetKafka(
+			datasyncer.WithBrokers([]string{"localhost:29092"}),
+			datasyncer.WithTopic("file-to-kafka-test-topic"),
+		),
 		CustomTransformFunc,
 	)
 
