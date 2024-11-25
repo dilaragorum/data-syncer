@@ -6,39 +6,39 @@ import (
 	"time"
 )
 
-type KafkaProducerConfig struct {
-	Brokers      []string
-	Topic        string
-	BatchSize    int
-	BatchTimeout time.Duration
-}
+type TargetKafkaOption func(*targetKafka)
 
 type targetKafka struct {
 	producer     *kafka.Writer
 	batchTimeout time.Duration
 }
 
-func NewTargetKafka(producerConfig *KafkaProducerConfig) DataTarget {
-	if producerConfig.BatchSize <= 0 {
-		producerConfig.BatchSize = 100
+func NewTargetKafka(options ...TargetKafkaOption) DataTarget {
+	t := &targetKafka{
+		producer: &kafka.Writer{
+			BatchSize:    100,
+			BatchTimeout: time.Nanosecond,
+		},
+		batchTimeout: time.Second,
 	}
 
-	producer := &kafka.Writer{
-		Topic:        producerConfig.Topic,
-		Addr:         kafka.TCP(producerConfig.Brokers...),
-		BatchSize:    producerConfig.BatchSize,
-		BatchTimeout: time.Nanosecond,
+	for _, opt := range options {
+		opt(t)
 	}
 
-	target := &targetKafka{producer: producer}
+	return t
+}
 
-	if producerConfig.BatchTimeout <= 0 {
-		target.batchTimeout = time.Second
-	} else {
-		target.batchTimeout = producerConfig.BatchTimeout
+func WithBrokers(brokers []string) TargetKafkaOption {
+	return func(t *targetKafka) {
+		t.producer.Addr = kafka.TCP(brokers...)
 	}
+}
 
-	return target
+func WithTopic(topic string) TargetKafkaOption {
+	return func(t *targetKafka) {
+		t.producer.Topic = topic
+	}
 }
 
 func (t *targetKafka) Send(input <-chan []byte) error {
