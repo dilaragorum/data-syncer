@@ -18,7 +18,6 @@ type targetKafka struct {
 	batchTimeout time.Duration
 }
 
-// TODO:adam düz text verirse dosyadan doğrudan value olacak şekilde geliştirme yapalım
 func NewTargetKafka(options ...TargetKafkaOption) DataTarget {
 	t := &targetKafka{
 		producer: &kafka.Writer{
@@ -86,10 +85,18 @@ func (t *targetKafka) Send(input <-chan []byte) error {
 				return nil
 			}
 
-			toBeProduced = append(toBeProduced, kafka.Message{
-				Key:   []byte(gjson.GetBytes(data, "key").String()),
-				Value: []byte(gjson.GetBytes(data, "value").String()),
-			})
+			kafkaMsg := kafka.Message{
+				Key: []byte(gjson.GetBytes(data, "key").String()),
+			}
+
+			value := gjson.GetBytes(data, "value")
+			if value.Exists() {
+				kafkaMsg.Value = []byte(value.String())
+			} else {
+				kafkaMsg.Value = data
+			}
+
+			toBeProduced = append(toBeProduced, kafkaMsg)
 
 			if len(toBeProduced) == t.producer.BatchSize {
 				t.producer.WriteMessages(context.Background(), toBeProduced...)
