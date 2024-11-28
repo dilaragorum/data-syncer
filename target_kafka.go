@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/scram"
 	"github.com/tidwall/gjson"
@@ -24,6 +25,13 @@ func NewTargetKafka(options ...TargetKafkaOption) DataTarget {
 			BatchSize:    100,
 			BatchTimeout: time.Nanosecond,
 			Transport:    &kafka.Transport{},
+			Completion: func(messages []kafka.Message, err error) {
+				if err != nil {
+					fmt.Printf("Failed to delivered %d number of messages \n", len(messages))
+					return
+				}
+				fmt.Printf("Successfully delivered %d number of messages \n", len(messages))
+			},
 		},
 		batchTimeout: time.Second,
 	}
