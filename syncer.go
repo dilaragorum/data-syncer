@@ -12,10 +12,13 @@ type DataTarget interface {
 
 type TransformFunc func([]byte) ([]byte, error)
 
+type ErrorHandlingFunc func([]byte) ([]byte, error)
+
 type DataSyncer struct {
-	source    DataSource
-	target    DataTarget
-	transform func([]byte) ([]byte, error)
+	source        DataSource
+	target        DataTarget
+	transform     func([]byte) ([]byte, error)
+	errorHandling func([]byte) ([]byte, error)
 }
 
 func New(source DataSource, target DataTarget) *DataSyncer {

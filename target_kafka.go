@@ -82,15 +82,29 @@ func (t *targetKafka) Send(input <-chan []byte) error {
 	ticker := time.Tick(t.batchTimeout)
 
 	var toBeProduced []kafka.Message
+
+	flush := func() error {
+		if len(toBeProduced) == 0 {
+			return nil
+		}
+
+		if err := t.producer.WriteMessages(context.Background(), toBeProduced...); err != nil {
+			return fmt.Errorf("failed to write messages: %w", err)
+		}
+
+		toBeProduced = toBeProduced[:0]
+		return nil
+	}
+
 	for {
 		select {
 		case data, isOpened := <-input:
 			if !isOpened {
-				if len(toBeProduced) != 0 {
-					err := t.producer.WriteMessages(context.Background(), toBeProduced...)
-					_ = err
+				for leftData := range input {
+					toBeProduced = append(toBeProduced, kafka.Message{Value: leftData})
 				}
-				return nil
+
+				return flush()
 			}
 
 			kafkaMsg := kafka.Message{
@@ -106,17 +120,15 @@ func (t *targetKafka) Send(input <-chan []byte) error {
 
 			toBeProduced = append(toBeProduced, kafkaMsg)
 
-			if len(toBeProduced) == t.producer.BatchSize {
-				t.producer.WriteMessages(context.Background(), toBeProduced...)
-				toBeProduced = []kafka.Message{}
+			if len(toBeProduced) >= t.producer.BatchSize {
+				if err := flush(); err != nil {
+					return err
+				}
 			}
 		case <-ticker:
-			if len(toBeProduced) == 0 {
-				continue
+			if err := flush(); err != nil {
+				return err
 			}
-
-			t.producer.WriteMessages(context.Background(), toBeProduced...)
-			toBeProduced = []kafka.Message{}
 		}
 	}
 }
