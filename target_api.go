@@ -11,12 +11,17 @@ import (
 
 type ErrorHandler func(data []byte, err error)
 
+type ParseLineFuncHandler func(line []byte) []interface{}
+
 type TargetApiOption func(*targetApi)
 
 type targetApi struct {
 	client           http.Client
 	url              string
 	errorHandlerFunc ErrorHandler
+
+	template             string
+	parseLineFuncHandler ParseLineFuncHandler
 }
 
 func NewTargetApi(url string, opts ...TargetApiOption) DataTarget {
@@ -56,9 +61,33 @@ func WithErrorHandler(handler ErrorHandler) TargetApiOption {
 	}
 }
 
+func WithTemplateHandler(template string, parseLineFuncHandler ...ParseLineFuncHandler) TargetApiOption {
+	return func(t *targetApi) {
+		t.template = template
+
+		if len(parseLineFuncHandler) > 0 && parseLineFuncHandler[0] != nil {
+			t.parseLineFuncHandler = parseLineFuncHandler[0]
+		} else {
+			t.parseLineFuncHandler = func(line []byte) []interface{} {
+				return []interface{}{line}
+			}
+		}
+	}
+}
+
 func (t *targetApi) Send(input <-chan []byte) error {
 	for data := range input {
-		resp, err := t.client.Post(t.url, "application/json", bytes.NewBuffer(data))
+		var reqBody []byte
+
+		if t.template != "" && t.parseLineFuncHandler != nil {
+			args := t.parseLineFuncHandler(data)
+			formattedReq := fmt.Sprintf(t.template, args...)
+			reqBody = []byte(formattedReq)
+		} else {
+			reqBody = data
+		}
+
+		resp, err := t.client.Post(t.url, "application/json", bytes.NewBuffer(reqBody))
 		if err != nil {
 			if t.errorHandlerFunc != nil {
 				t.errorHandlerFunc(data, err)

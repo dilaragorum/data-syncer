@@ -3,11 +3,17 @@ package main
 import (
 	"datasyncer"
 	"log"
+	"strings"
 )
 
 func main() {
 	errFunc := func(data []byte, err error) {
 		log.Printf("Error sending data: %v", err)
+	}
+
+	templateFunc := func(data []byte) []interface{} {
+		parts := strings.Split(strings.TrimSpace(string(data)), ",")
+		return []interface{}{parts[0], parts[1], parts[2]}
 	}
 
 	syncer := datasyncer.New(
@@ -16,6 +22,10 @@ func main() {
 		),
 		datasyncer.NewTargetApi("https://jsonplaceholder.typicode.com/posts",
 			datasyncer.WithErrorHandler(errFunc),
+			datasyncer.WithTemplateHandler(
+				`{"userId":%s, "title":%s,"body":%s}`,
+				templateFunc,
+			),
 		),
 	)
 

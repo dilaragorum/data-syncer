@@ -1,2 +1,3 @@
-{"title": "Post title","body": "Post description","userId": 1}
-{"title": "Post title2","body": "Post description","userId": 1}
+1, "exampleTitle1", "exampleBody1"
+1, "exampleTitle2", "exampleBody2"
+
