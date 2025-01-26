@@ -77,6 +77,10 @@ func WithTemplateHandler(template string, parseLineFuncHandler ...ParseLineFuncH
 
 func (t *targetApi) Send(input <-chan []byte) error {
 	for data := range input {
+		if len(data) == 0 {
+			return nil
+		}
+
 		var reqBody []byte
 
 		if t.template != "" && t.parseLineFuncHandler != nil {
